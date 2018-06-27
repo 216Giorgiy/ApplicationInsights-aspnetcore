@@ -1,5 +1,3 @@
-﻿using Microsoft.ApplicationInsights.AspNetCore.Extensions;
-
 namespace Microsoft.ApplicationInsights.AspNetCore
 {
     using System;
@@ -8,7 +6,9 @@ namespace Microsoft.ApplicationInsights.AspNetCore
     using System.Diagnostics;
     using System.Threading;
     using Microsoft.ApplicationInsights.AspNetCore.DiagnosticListeners;
+    using Microsoft.ApplicationInsights.AspNetCore.Extensions;
     using Microsoft.ApplicationInsights.Extensibility;
+    using Microsoft.ApplicationInsights.W3C;
 
     /// <summary>
     /// Telemetry module tracking requests using Diagnostic Listeners.
@@ -30,12 +30,15 @@ namespace Microsoft.ApplicationInsights.AspNetCore
             this.CollectionOptions = new RequestCollectionOptions();
         }
 
+#pragma warning disable 612, 618
         public RequestTrackingTelemetryModule(IApplicationIdProvider applicationIdProvider)
         {
             this.applicationIdProvider = applicationIdProvider;
             this.subscriptions = new ConcurrentBag<IDisposable>();
             this.diagnosticListeners = new List<IApplicationInsightDiagnosticListener>();
+            this.EnableW3CHeaders = W3CConstants.IsW3CTracingEnabled();
         }
+#pragma warning retore 612, 618
 
         public RequestCollectionOptions CollectionOptions { get; set; }
 
@@ -58,7 +61,8 @@ namespace Microsoft.ApplicationInsights.AspNetCore
                             this.telemetryClient,
                             applicationIdProvider,
                             this.CollectionOptions.InjectResponseHeaders,
-                            this.CollectionOptions.TrackExceptions));
+                            this.CollectionOptions.TrackExceptions,
+                            this.EnableW3CHeaders));
 
                         this.diagnosticListeners.Add
                             (new MvcDiagnosticsListener());
@@ -70,6 +74,8 @@ namespace Microsoft.ApplicationInsights.AspNetCore
                 }
             }
         }
+
+        internal bool EnableW3CHeaders { get; set; }
 
         /// <inheritdoc />
         void IObserver<DiagnosticListener>.OnNext(DiagnosticListener value)

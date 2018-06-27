@@ -2,6 +2,7 @@
 {
     using System;
     using System.Diagnostics;
+    using System.Collections.Generic;
     using System.Linq;
     using System.Net.Http;
     using System.Reflection;
@@ -13,13 +14,12 @@
     using AI;
     using Microsoft.ApplicationInsights.DataContracts;
     using Microsoft.AspNetCore.Hosting;
-    using Microsoft.ApplicationInsights.Channel;
     using Microsoft.Extensions.DependencyInjection;
     using Xunit;
     using Xunit.Abstractions;
 #if NET451 || NET461
     using Microsoft.ApplicationInsights.Extensibility.PerfCounterCollector;
-    using Microsoft.ApplicationInsights.Extensibility;    
+    using Microsoft.ApplicationInsights.Extensibility;
 #endif
 
     public abstract class TelemetryTestsBase
@@ -34,12 +34,21 @@
 
         [MethodImpl(MethodImplOptions.NoOptimization)]
         public TelemetryItem<RequestData> ValidateBasicRequest(InProcessServer server, string requestPath, RequestTelemetry expected, bool expectRequestContextInResponse = true)
+<<<<<<< HEAD
+=======
+        {
+            return ValidateRequestWithHeaders(server, requestPath, null, expected);
+        }
+
+        [MethodImpl(MethodImplOptions.NoOptimization)]
+        public TelemetryItem<RequestData> ValidateRequestWithHeaders(InProcessServer server, string requestPath, Dictionary<string, string> requestHeaders, RequestTelemetry expected, bool expectRequestContextInResponse = true)
+>>>>>>> a758c05... Experimental support for W3C headers
         {
             // Subtract 50 milliseconds to hack around strange behavior on build server where the RequestTelemetry.Timestamp is somehow sometimes earlier than now by a few milliseconds.
             expected.Timestamp = DateTimeOffset.Now.Subtract(TimeSpan.FromMilliseconds(50));
             Stopwatch timer = Stopwatch.StartNew();
 
-            var response = this.ExecuteRequest(server.BaseHost + requestPath);
+            var response = this.ExecuteRequest(server.BaseHost + requestPath, requestHeaders);
 
             var actual = server.Listener.ReceiveItemsOfType<TelemetryItem<RequestData>>(1, TestListenerTimeoutInMs);
             timer.Stop();
@@ -50,7 +59,7 @@
             var item = actual.OfType<TelemetryItem<RequestData>>().FirstOrDefault();
             Assert.NotNull(item);
             var data = ((TelemetryItem<RequestData>)item).data.baseData;
-            
+
             Assert.Equal(expected.ResponseCode, data.responseCode);
             Assert.Equal(expected.Name, data.name);
             Assert.Equal(expected.Success, data.success);
@@ -78,7 +87,7 @@
             Assert.NotEmpty(data.exceptions[0].parsedStack);
         }
 
-        public void ValidateBasicDependency(InProcessServer server, string requestPath, DependencyTelemetry expected)
+        public (TelemetryItem<RequestData>, TelemetryItem<RemoteDependencyData>) ValidateBasicDependency(InProcessServer server, string requestPath, DependencyTelemetry expected)
         {
             this.ExecuteRequest(server.BaseHost + requestPath);
 
@@ -92,13 +101,13 @@
             Assert.Equal(expected.ResultCode, dependencyData.resultCode);
             Assert.Equal(expected.Success, dependencyData.success);
 
-#if !NET461
             var requestTelemetry = actual.OfType<TelemetryItem<RequestData>>().FirstOrDefault();
             Assert.NotNull(requestTelemetry);
 
-            Assert.Contains(dependencyTelemetry.tags["ai.operation.id"], requestTelemetry.tags["ai.operation.parentId"]);
+            Assert.Contains(dependencyTelemetry.data.baseData.id, requestTelemetry.tags["ai.operation.parentId"]);
             Assert.Equal(requestTelemetry.tags["ai.operation.id"], dependencyTelemetry.tags["ai.operation.id"]);
-#endif
+
+            return (requestTelemetry, dependencyTelemetry);
         }
 
 #if NET451 || NET461
@@ -120,7 +129,7 @@
         }
 #endif
 
-        protected HttpResponseMessage ExecuteRequest(string requestPath)
+        protected HttpResponseMessage ExecuteRequest(string requestPath, Dictionary<string, string> headers = null)
         {
             var httpClientHandler = new HttpClientHandler();
             httpClientHandler.UseDefaultCredentials = true;
@@ -128,7 +137,16 @@
             using (HttpClient httpClient = new HttpClient(httpClientHandler, true))
             {
                 this.output.WriteLine(string.Format("{0}: Executing request: {1}", DateTime.Now.ToString("MM/dd/yyyy hh:mm:ss.fff tt"), requestPath));
-                var task = httpClient.GetAsync(requestPath);
+                HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Get, requestPath);
+                if (headers != null)
+                {
+                    foreach (var h in headers)
+                    {
+                        request.Headers.Add(h.Key, h.Value);
+                    }
+                }
+
+                var task = httpClient.SendAsync(request);
                 task.Wait(TestListenerTimeoutInMs);
                 this.output.WriteLine(string.Format("{0}: Ended request: {1}", DateTime.Now.ToString("MM/dd/yyyy hh:mm:ss.fff tt"), requestPath));
 

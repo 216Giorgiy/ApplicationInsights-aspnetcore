@@ -1,9 +1,17 @@
-﻿namespace WebApi20.FunctionalTests.FunctionalTest
+﻿﻿namespace WebApi20.FunctionalTests.FunctionalTest
 {
+    using System;
+    using System.Collections.Generic;
+    using System.Diagnostics;
     using System.Linq;
     using System.Text.RegularExpressions;
 
     using FunctionalTestUtils;
+    using Microsoft.ApplicationInsights.AspNetCore.Extensions;
+    using Microsoft.ApplicationInsights.Extensibility;
+    using Microsoft.ApplicationInsights.Extensibility.Implementation.ApplicationId;
+    using Microsoft.AspNetCore.Hosting;
+    using Microsoft.Extensions.DependencyInjection;
     using Microsoft.ApplicationInsights.DataContracts;
     using Microsoft.ApplicationInsights.DependencyCollector;
     using Microsoft.AspNetCore.Hosting;
@@ -11,7 +19,7 @@
     using Xunit;
     using Xunit.Abstractions;
 
-    public class RequestTelemetryWebApiTests : TelemetryTestsBase
+    public class RequestTelemetryWebApiTests : TelemetryTestsBase, IDisposable
     {
         private const string assemblyName = "WebApi20.FunctionalTests20";
         public RequestTelemetryWebApiTests(ITestOutputHelper output) : base (output)
@@ -94,6 +102,7 @@
             }
         }
 
+<<<<<<< HEAD
         [Fact]
         public void TestW3COperationIdFormatGeneration()
         {
@@ -126,6 +135,96 @@
                 // end of workaround test
             }
         }
+=======
+        public void TestW3CHeadersAreNotEnabledByDefault()
+        {
+            using (var server = new InProcessServer(assemblyName, this.output))
+            {
+                const string RequestPath = "/api/values";
+
+                var expectedRequestTelemetry = new RequestTelemetry();
+                expectedRequestTelemetry.Name = "GET Values/Get";
+                expectedRequestTelemetry.ResponseCode = "200";
+                expectedRequestTelemetry.Success = true;
+                expectedRequestTelemetry.Url = new Uri(server.BaseHost + RequestPath);
+
+                var activity = new Activity("dummy").SetParentId("|abc.123.").Start();
+                var headers = new Dictionary<string, string>
+                {
+                    ["traceparent"] = "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01",
+                    ["tracestate"] = "some=state"
+                };
+
+                var actualRequest = this.ValidateRequestWithHeaders(server, RequestPath, headers, expectedRequestTelemetry);
+
+                Assert.Equal(activity.RootId, actualRequest.tags["ai.operation.id"]);
+                Assert.Contains(activity.Id, actualRequest.tags["ai.operation.parentId"]);
+            }
+        }
+
+        [Fact]
+        public void TestW3CHeadersAreParsedWhenEnabledInConfig()
+        {
+            Environment.SetEnvironmentVariable("APPLICATIONINSIGHTS_ENABLE_W3C_TRACING", bool.TrueString);
+            using (var server = new InProcessServer(assemblyName, this.output))
+            {
+                const string RequestPath = "/api/values";
+
+                var expectedRequestTelemetry = new RequestTelemetry();
+                expectedRequestTelemetry.Name = "GET Values/Get";
+                expectedRequestTelemetry.ResponseCode = "200";
+                expectedRequestTelemetry.Success = true;
+                expectedRequestTelemetry.Url = new Uri(server.BaseHost + RequestPath);
+
+                var activity = new Activity("dummy").SetParentId("|abc.123.").Start();
+                var headers = new Dictionary<string, string>
+                {
+                    ["traceparent"] = "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01",
+                    ["tracestate"] = "some=state",
+                    ["Correlation-Context"] = "k1=v1,k2=v2"
+                };
+
+                var actualRequest = this.ValidateRequestWithHeaders(server, RequestPath, headers, expectedRequestTelemetry);
+
+                Assert.Equal("4bf92f3577b34da6a3ce929d0e0e4736", actualRequest.tags["ai.operation.id"]);
+                Assert.Equal("00f067aa0ba902b7", actualRequest.tags["ai.operation.parentId"]);
+                Assert.Equal("v1", actualRequest.data.baseData.properties["k1"]);
+                Assert.Equal("v2", actualRequest.data.baseData.properties["k2"]);
+            }
+        }
+
+        [Fact]
+        public void TestW3CIsUsedWithoutHeadersWhenEnabledInConfig()
+        {
+            Environment.SetEnvironmentVariable("APPLICATIONINSIGHTS_ENABLE_W3C_TRACING", bool.TrueString);
+            using (var server = new InProcessServer(assemblyName, this.output))
+            {
+                const string RequestPath = "/api/values";
+
+                var expectedRequestTelemetry = new RequestTelemetry();
+                expectedRequestTelemetry.Name = "GET Values/Get";
+                expectedRequestTelemetry.ResponseCode = "200";
+                expectedRequestTelemetry.Success = true;
+                expectedRequestTelemetry.Url = new Uri(server.BaseHost + RequestPath);
+
+                var actualRequest = this.ValidateBasicRequest(server, RequestPath, expectedRequestTelemetry);
+
+                Assert.Equal(32, actualRequest.tags["ai.operation.id"].Length);
+                Assert.False(actualRequest.tags.ContainsKey("ai.operation.parentId"));
+                Assert.Equal(16, actualRequest.data.baseData.id.Length);
+            }
+        }
+
+        public void Dispose()
+        {
+            while (Activity.Current != null)
+            {
+                Activity.Current.Stop();
+            }
+
+            Environment.SetEnvironmentVariable("APPLICATIONINSIGHTS_ENABLE_W3C_TRACING", null);
+        }
+>>>>>>> a758c05... Experimental support for W3C headers
     }
 }
 

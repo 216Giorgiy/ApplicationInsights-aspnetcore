@@ -52,7 +52,7 @@ namespace FunctionalTestUtils
             this.httpListenerConnectionString = LauchApplicationAndStartListener(assemblyName);
         }
 
-        private string LauchApplicationAndStartListener(string assemblyName)
+        private string LauchApplicationAndStartListener(string assemblyName, Func<IWebHostBuilder, IWebHostBuilder> configureHost = null)
         {
             string listenerConnectionString = "";
             bool listenerStarted = false;
@@ -60,7 +60,7 @@ namespace FunctionalTestUtils
             while (retryCount <= 3)
             {
                 output.WriteLine(string.Format("{0}: Attempt {1} to StartApplication", DateTime.Now.ToString("MM/dd/yyyy hh:mm:ss.fff tt"), retryCount));
-                listenerConnectionString = StartApplication(assemblyName);
+                listenerConnectionString = StartApplication(assemblyName, configureHost);
                 listenerStarted = StartListener(listenerConnectionString);
                 if(listenerStarted)
                 {
@@ -99,10 +99,11 @@ namespace FunctionalTestUtils
 
             return true;
         }
-        private string StartApplication(string assemblyName)
+
+        private string StartApplication(string assemblyName, Func<IWebHostBuilder, IWebHostBuilder> configureHost = null)
         {
             output.WriteLine(string.Format("{0}: Launching application at: {1}", DateTime.Now.ToString("MM/dd/yyyy hh:mm:ss.fff tt"), this.url));
-            return this.Start(assemblyName); ;
+            return this.Start(assemblyName, configureHost);
         }
 
         private void StopApplication()
@@ -133,7 +134,7 @@ namespace FunctionalTestUtils
 
         public IServiceProvider ApplicationServices { get; private set; }
 
-        private string Start(string assemblyName)
+        private string Start(string assemblyName, Func<IWebHostBuilder, IWebHostBuilder> configureHost = null)
         {
             var builder = new WebHostBuilder()
                 .UseContentRoot(Directory.GetCurrentDirectory())
@@ -149,11 +150,12 @@ namespace FunctionalTestUtils
                         Defined = new Dictionary<string, string> {[IKey] = AppId}
                     });
             });
+            
             if (configureHost != null)
             {
                 builder = configureHost(builder);
             }
-
+            
             this.hostingEngine = builder.Build();
             this.hostingEngine.Start();
 
