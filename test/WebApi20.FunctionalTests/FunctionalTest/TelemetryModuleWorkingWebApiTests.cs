@@ -1,4 +1,9 @@
-﻿namespace WebApi20.FunctionalTests.FunctionalTest
+﻿using Microsoft.ApplicationInsights.AspNetCore;
+using Microsoft.ApplicationInsights.DependencyCollector;
+using Microsoft.ApplicationInsights.Extensibility;
+using Microsoft.Extensions.DependencyInjection;
+
+namespace WebApi20.FunctionalTests.FunctionalTest
 {
     using FunctionalTestUtils;
     using System;
@@ -41,7 +46,19 @@
             Environment.SetEnvironmentVariable("APPLICATIONINSIGHTS_ENABLE_W3C_TRACING", bool.TrueString);
             const string RequestPath = "/api/values";
 
-            using (var server = new InProcessServer(assemblyName, this.output))
+            using (var server = new InProcessServer(assemblyName, this.output, (builder) =>
+            {
+                return builder.ConfigureServices(
+                    services =>
+                    {
+                        services.AddApplicationInsightsTelemetry();
+                        var dependencyModuleConfigFactoryDescriptor =
+                            services.Where(sd => sd.ServiceType == typeof(ITelemetryModuleConfigurator));
+                        services.Remove(dependencyModuleConfigFactoryDescriptor.First());
+
+                        services.ConfigureTelemetryModule<DependencyTrackingTelemetryModule>(module => {});
+                    });
+            }))
             {
                 DependencyTelemetry expected = new DependencyTelemetry
                 {
@@ -52,13 +69,11 @@
                 };
 
                 var activity = new Activity("dummy")
-                    .Start()
-                    .GenerateW3CContext();
-
-                string expectedTraceId = activity.GetTraceId();
-                string expectedParentSpanId = activity.GetSpanId();
+                    .Start();
 
                 var (request, dependency) = this.ValidateBasicDependency(server, RequestPath, expected);
+                string expectedTraceId = activity.GetTraceId();
+                string expectedParentSpanId = activity.GetSpanId();
 
                 Assert.Equal(expectedTraceId, request.tags["ai.operation.id"]);
                 Assert.Equal(expectedTraceId, dependency.tags["ai.operation.id"]);
