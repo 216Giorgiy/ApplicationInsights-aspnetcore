@@ -640,6 +640,9 @@
             Assert.Equal(activityInitializedByW3CHeader.GetSpanId(), requestTelemetry.Id);
             Assert.Equal("4bf92f3577b34da6a3ce929d0e0e4736", requestTelemetry.Context.Operation.Id);
             Assert.Equal("00f067aa0ba902b7", requestTelemetry.Context.Operation.ParentId);
+
+            Assert.True(context.Response.Headers.TryGetValue(RequestResponseHeaders.RequestContextHeader, out var appId));
+            Assert.Equal($"appId={CommonMocks.TestApplicationId}", appId);
         }
 
         [Fact]
@@ -696,6 +699,9 @@
             Assert.Equal(activityInitializedByW3CHeader.GetSpanId(), requestTelemetry.Id);
             Assert.Equal("4bf92f3577b34da6a3ce929d0e0e4736", requestTelemetry.Context.Operation.Id);
             Assert.Equal("00f067aa0ba902b7", requestTelemetry.Context.Operation.ParentId);
+
+            Assert.True(context.Response.Headers.TryGetValue(RequestResponseHeaders.RequestContextHeader, out var appId));
+            Assert.Equal($"appId={CommonMocks.TestApplicationId}", appId);
         }
 
         [Fact]
@@ -747,6 +753,9 @@
             Assert.Equal(activityInitializedByW3CHeader.GetSpanId(), requestTelemetry.Id);
             Assert.Equal(activityInitializedByW3CHeader.GetTraceId(), requestTelemetry.Context.Operation.Id);
             Assert.Null(requestTelemetry.Context.Operation.ParentId);
+
+            Assert.True(context.Response.Headers.TryGetValue(RequestResponseHeaders.RequestContextHeader, out var appId));
+            Assert.Equal($"appId={CommonMocks.TestApplicationId}", appId);
         }
 
         [Fact]
@@ -794,6 +803,9 @@
             var requestTelemetry = (RequestTelemetry)this.sentTelemetry.Single();
 
             Assert.Equal(ExpectedAppId, requestTelemetry.Source);
+
+            Assert.True(context.Response.Headers.TryGetValue(RequestResponseHeaders.RequestContextHeader, out var appId));
+            Assert.Equal($"appId={CommonMocks.TestApplicationId}", appId);
         }
 #pragma warning restore 612, 618
 

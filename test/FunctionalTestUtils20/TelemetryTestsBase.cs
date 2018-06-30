@@ -13,10 +13,12 @@
     using System.Threading.Tasks;
     using AI;
     using Microsoft.ApplicationInsights.DataContracts;
+    using Microsoft.ApplicationInsights.Extensibility.Implementation.ApplicationId;
     using Microsoft.AspNetCore.Hosting;
     using Microsoft.Extensions.DependencyInjection;
     using Xunit;
     using Xunit.Abstractions;
+    using Microsoft.ApplicationInsights.Extensibility;
 #if NET451 || NET461
     using Microsoft.ApplicationInsights.Extensibility.PerfCounterCollector;
     using Microsoft.ApplicationInsights.Extensibility;
@@ -24,6 +26,9 @@
 
     public abstract class TelemetryTestsBase
     {
+        public const string IKey = "Foo";
+        public const string AppId = "Bar";
+
         public const int TestListenerTimeoutInMs = 10000;
         protected readonly ITestOutputHelper output;
         
@@ -65,6 +70,12 @@
             Assert.Equal(expected.Success, data.success);
             Assert.Equal(expected.Url, new Uri(data.url));
             Assert.Equal(expectRequestContextInResponse, response.Headers.Contains("Request-Context"));
+            if (expectRequestContextInResponse)
+            {
+                Assert.True(response.Headers.TryGetValues("Request-Context", out var appIds));
+                Assert.Equal($"appId={AppId}", appIds.Single());
+            }
+
             output.WriteLine("actual.Duration: " + data.duration);
             output.WriteLine("timer.Elapsed: " + timer.Elapsed);
             Assert.True(TimeSpan.Parse(data.duration) < timer.Elapsed.Add(TimeSpan.FromMilliseconds(20)), "duration");
@@ -129,6 +140,24 @@
         }
 #endif
 
+<<<<<<< HEAD
+=======
+        public IWebHostBuilder ConfigureApplicationIdProvider(IWebHostBuilder builder)
+        {
+            return builder.ConfigureServices(services =>
+            {
+                services.AddSingleton<IApplicationIdProvider>( provider => new DictionaryApplicationIdProvider
+                {
+                    Defined = new Dictionary<string, string>
+                    {
+                        [IKey] = AppId
+                    }
+                });
+                services.AddApplicationInsightsTelemetry();
+            });
+        }
+
+>>>>>>> af1cddd... check request-context
         protected HttpResponseMessage ExecuteRequest(string requestPath, Dictionary<string, string> headers = null)
         {
             var httpClientHandler = new HttpClientHandler();

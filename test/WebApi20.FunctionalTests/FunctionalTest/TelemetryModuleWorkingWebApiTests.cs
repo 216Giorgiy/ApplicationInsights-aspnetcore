@@ -28,7 +28,7 @@ namespace WebApi20.FunctionalTests.FunctionalTest
         {
             const string RequestPath = "/api/values";
 
-            using (var server = new InProcessServer(assemblyName, this.output))
+            using (var server = new InProcessServer(assemblyName, this.output, ConfigureApplicationIdProvider))
             {
                 DependencyTelemetry expected = new DependencyTelemetry();
                 expected.ResultCode = "200";
@@ -48,6 +48,7 @@ namespace WebApi20.FunctionalTests.FunctionalTest
 
             using (var server = new InProcessServer(assemblyName, this.output, (builder) =>
             {
+                ConfigureApplicationIdProvider(builder);
                 return builder.ConfigureServices(
                     services =>
                     {

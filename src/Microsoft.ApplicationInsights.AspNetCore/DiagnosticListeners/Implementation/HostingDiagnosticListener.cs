@@ -383,6 +383,8 @@
                 {
                     activity.Stop();
                 }
+
+                SetAppIdInResponseHeader(httpContext, telemetry);
             }
         }
 
