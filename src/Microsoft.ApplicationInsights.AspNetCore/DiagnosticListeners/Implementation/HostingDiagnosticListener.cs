@@ -93,8 +93,12 @@
                 string sourceAppId = null;
 
 <<<<<<< HEAD
+<<<<<<< HEAD
                 if (currentActivity.ParentId != null)
 =======
+=======
+                // W3C
+>>>>>>> 4f93728... tracestate validation and tests
                 if (this.enableW3CHeaders)
 >>>>>>> a758c05... Experimental support for W3C headers
                 {
@@ -105,8 +109,13 @@
                     activity.SetParentId(activity.GetTraceId()).Start();
                 }
 <<<<<<< HEAD
+<<<<<<< HEAD
                 else if (httpContext.Request.Headers.TryGetValue(RequestResponseHeaders.StandardRootIdHeader, out var xmsRequestRootId))
 =======
+=======
+
+                // Request-Id
+>>>>>>> 4f93728... tracestate validation and tests
                 else if (currentActivity.ParentId == null &&
                     httpContext.Request.Headers.TryGetValue(RequestResponseHeaders.StandardRootIdHeader, out StringValues alternativeRootIdValues) &&
                     alternativeRootIdValues != StringValues.Empty)
@@ -145,7 +154,7 @@
                 }
 
                 var requestTelemetry = InitializeRequestTelemetry(httpContext, currentActivity, isActivityCreatedFromRequestIdHeader, Stopwatch.GetTimestamp());
-                if (sourceAppId != null)
+                if (this.enableW3CHeaders && sourceAppId != null)
                 {
                     requestTelemetry.Source = sourceAppId;
                 }
@@ -177,12 +186,15 @@
                 string sourceAppId = null;
                 IHeaderDictionary requestHeaders = httpContext.Request.Headers;
 
+                // W3C
                 if (this.enableW3CHeaders)
                 {
                     SetW3CContext(httpContext.Request.Headers, activity, out sourceAppId);
                     // length enforced in TrySetW3CContext
                     activity.SetParentId(activity.GetTraceId());
                 }
+
+                // Request-Id
                 else if (requestHeaders.TryGetValue(RequestResponseHeaders.RequestIdHeader, out StringValues requestIdValues) &&
                     requestIdValues != StringValues.Empty)
                 {
@@ -190,21 +202,10 @@
                     isActivityCreatedFromRequestIdHeader = true;
                     activity.SetParentId(requestId);
 
-                    string[] baggage = requestHeaders.GetCommaSeparatedValues(RequestResponseHeaders.CorrelationContextHeader);
-                    if (baggage != StringValues.Empty)
-                    {
-                        foreach (var item in baggage)
-                        {
-                            NameValueHeaderValue baggageItem;
-                            if (NameValueHeaderValue.TryParse(item, out baggageItem))
-                            {
-                                var itemName = StringUtilities.EnforceMaxLength(baggageItem.Name, InjectionGuardConstants.ContextHeaderKeyMaxLength);
-                                var itemValue = StringUtilities.EnforceMaxLength(baggageItem.Value, InjectionGuardConstants.ContextHeaderValueMaxLength);
-                                activity.AddBaggage(itemName, itemValue);
-                            }
-                        }
-                    }
+                    ReadCorrelationContext(requestHeaders, activity);
                 }
+
+                // x-ms-request-id
                 else if (requestHeaders.TryGetValue(RequestResponseHeaders.StandardRootIdHeader, out StringValues alternativeRootIdValues) &&
                          alternativeRootIdValues != StringValues.Empty)
                 {
@@ -230,7 +231,7 @@
                 httpContext.Features.Set(activity);
 
                 var requestTelemetry = InitializeRequestTelemetry(httpContext, activity, isActivityCreatedFromRequestIdHeader, timestamp);
-                if (sourceAppId != null)
+                if (this.enableW3CHeaders && sourceAppId != null)
                 {
                     requestTelemetry.Source = sourceAppId;
                 }
@@ -318,31 +319,37 @@
             }
 
             this.client.Initialize(requestTelemetry);
-
-            // set Source
-            string headerCorrelationId = HttpHeadersUtilities.GetRequestContextKeyValue(httpContext.Request.Headers, RequestResponseHeaders.RequestContextSourceKey);
-
-            string applicationId = null;
-            // If the source header is present on the incoming request, and it is an external component (not the same ikey as the one used by the current component), populate the source field.
-            if (!string.IsNullOrEmpty(headerCorrelationId))
-            {
-                headerCorrelationId = StringUtilities.EnforceMaxLength(headerCorrelationId, InjectionGuardConstants.AppIdMaxLength);
-                if (string.IsNullOrEmpty(requestTelemetry.Context.InstrumentationKey))
-                {
-                    requestTelemetry.Source = headerCorrelationId;
-                }
-
-                else if ((this.applicationIdProvider?.TryGetApplicationId(requestTelemetry.Context.InstrumentationKey, out applicationId) ?? false)
-                    && applicationId != headerCorrelationId)
-                {
-                    requestTelemetry.Source = headerCorrelationId;
-                }
-            }
+            requestTelemetry.Source = GetAppIdFromRequestHeader(httpContext.Request.Headers, requestTelemetry.Context.InstrumentationKey);
 
             requestTelemetry.Start(timestamp);
             httpContext.Features.Set(requestTelemetry);
 
             return requestTelemetry;
+        }
+
+        private string GetAppIdFromRequestHeader(IHeaderDictionary requestHeaders, string instrumentationKey)
+        {
+            // set Source
+            string headerCorrelationId = HttpHeadersUtilities.GetRequestContextKeyValue(requestHeaders, RequestResponseHeaders.RequestContextSourceKey);
+
+            // If the source header is present on the incoming request, and it is an external component (not the same ikey as the one used by the current component), populate the source field.
+            if (!string.IsNullOrEmpty(headerCorrelationId))
+            {
+                headerCorrelationId = StringUtilities.EnforceMaxLength(headerCorrelationId, InjectionGuardConstants.AppIdMaxLength);
+                if (string.IsNullOrEmpty(instrumentationKey))
+                {
+                    return headerCorrelationId;
+                }
+
+                string applicationId = null;
+                if ((this.applicationIdProvider?.TryGetApplicationId(instrumentationKey, out applicationId) ?? false)
+                         && applicationId != headerCorrelationId)
+                {
+                    return headerCorrelationId;
+                }
+            }
+
+            return null;
         }
 
         private void SetAppIdInResponseHeader(HttpContext httpContext, RequestTelemetry requestTelemetry)
@@ -437,28 +444,12 @@
                 activity.GenerateW3CContext();
             }
 
-            string[] traceStateValues =
-                requestHeaders.GetCommaSeparatedValues(W3CConstants.TraceStateHeader);
+            string[] traceStateValues = HttpHeadersUtilities.SafeGetCommaSeparatedHeaderValues(requestHeaders, W3CConstants.TraceStateHeader,
+                InjectionGuardConstants.TraceStateHeaderMaxLength, InjectionGuardConstants.TraceStateMaxPairs);
 
             if (traceStateValues != null && traceStateValues.Any())
             {
-                /*if (traceStateValues.Sum(p => p.Length) > InjectionGuardConstants.TraceStateHeaderMaxLength)
-                {
-                    int currentLength = 0;
-                    int lastValidIndex = 0;
-                    for (int i = 0; i < traceStateValues.Length; i++)
-                    {
-                        if (currentLength + traceStateValues[i].Length > InjectionGuardConstants.TraceStateHeaderMaxLength)
-                        {
-                            lastValidIndex = i;
-                            break;
-                        }
-
-                        currentLength += traceStateValues[i].Length;
-                    }
-                }*/
-
-                var sourceAppIdStr = traceStateValues.FirstOrDefault(s => s.StartsWith("msappid"));
+                var sourceAppIdStr = traceStateValues.FirstOrDefault(s => s.StartsWith(W3CConstants.ApplicationIdTraceStateField));
                 if (sourceAppIdStr != null)
                 {
                     var pair = sourceAppIdStr.Split('=');
@@ -468,24 +459,28 @@
                     }
                 }
 
-                string traceStateExceptAppId = string.Join(",", traceStateValues.Where(s => !s.StartsWith("msappid")));
-                activity.SetTraceState(StringUtilities.EnforceMaxLength(traceStateExceptAppId, InjectionGuardConstants.TraceStateHeaderMaxLength));
+                string traceStateExceptAppId = string.Join(",", traceStateValues.Where(s => !s.StartsWith(W3CConstants.ApplicationIdTraceStateField)));
+                activity.SetTraceState(traceStateExceptAppId);
             }
 
             if (!activity.Baggage.Any())
             {
-                string[] baggage =
-                    requestHeaders.GetCommaSeparatedValues(RequestResponseHeaders.CorrelationContextHeader);
-                if (baggage != StringValues.Empty)
+                ReadCorrelationContext(requestHeaders, activity);
+            }
+        }
+
+        private void ReadCorrelationContext(IHeaderDictionary requestHeaders, Activity activity)
+        {
+            string[] baggage = requestHeaders.GetCommaSeparatedValues(RequestResponseHeaders.CorrelationContextHeader);
+            if (baggage != StringValues.Empty)
+            {
+                foreach (var item in baggage)
                 {
-                    foreach (var item in baggage)
+                    if (NameValueHeaderValue.TryParse(item, out var baggageItem))
                     {
-                        if (NameValueHeaderValue.TryParse(item, out var baggageItem))
-                        {
-                            var itemName = StringUtilities.EnforceMaxLength(baggageItem.Name, InjectionGuardConstants.ContextHeaderKeyMaxLength);
-                            var itemValue = StringUtilities.EnforceMaxLength(baggageItem.Value, InjectionGuardConstants.ContextHeaderValueMaxLength);
-                            activity.AddBaggage(itemName, itemValue);
-                        }
+                        var itemName = StringUtilities.EnforceMaxLength(baggageItem.Name, InjectionGuardConstants.ContextHeaderKeyMaxLength);
+                        var itemValue = StringUtilities.EnforceMaxLength(baggageItem.Value, InjectionGuardConstants.ContextHeaderValueMaxLength);
+                        activity.AddBaggage(itemName, itemValue);
                     }
                 }
             }
