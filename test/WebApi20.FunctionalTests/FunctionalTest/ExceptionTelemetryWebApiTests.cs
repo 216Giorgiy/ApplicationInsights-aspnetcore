@@ -20,7 +20,7 @@ namespace WebApi20.FunctionalTests.FunctionalTest
         [Fact]
         public void TestBasicRequestPropertiesAfterRequestingControllerThatThrows()
         {            
-            using (var server = new InProcessServer(assemblyName, this.output, ConfigureApplicationIdProvider))
+            using (var server = new InProcessServer(assemblyName, this.output))
             {                
                 const string RequestPath = "/api/exception";                
 
@@ -38,7 +38,7 @@ namespace WebApi20.FunctionalTests.FunctionalTest
         [Fact]
         public void TestBasicExceptionPropertiesAfterRequestingControllerThatThrows()
         {
-            using (var server = new InProcessServer(assemblyName, this.output, ConfigureApplicationIdProvider))
+            using (var server = new InProcessServer(assemblyName, this.output))
             {
                 var expectedExceptionTelemetry = new ExceptionTelemetry();
                 expectedExceptionTelemetry.Exception = new InvalidOperationException();

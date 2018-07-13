@@ -12,6 +12,7 @@
     using Microsoft.ApplicationInsights.DataContracts;
     using Microsoft.ApplicationInsights.Extensibility;
     using Microsoft.ApplicationInsights.Extensibility.Implementation;
+    using Microsoft.ApplicationInsights.W3C;
     using Microsoft.AspNetCore.Hosting;
     using Microsoft.AspNetCore.Http;
     using Microsoft.Extensions.DiagnosticAdapter;
@@ -32,10 +33,10 @@
 
         private readonly TelemetryClient client;
         private readonly IApplicationIdProvider applicationIdProvider;
-        private readonly bool enableW3CHeaders;
         private readonly string sdkVersion = SdkVersionUtils.GetVersion();
         private readonly bool injectResponseHeaders;
         private readonly bool trackExceptions;
+        private readonly bool enableW3CHeaders;
         private const string ActivityCreatedByHostingDiagnosticListener = "ActivityCreatedByHostingDiagnosticListener";
 
         /// <summary>
@@ -138,6 +139,11 @@
                 }
 
                 var requestTelemetry = InitializeRequestTelemetry(httpContext, currentActivity, isActivityCreatedFromRequestIdHeader, Stopwatch.GetTimestamp());
+                if (sourceAppId != null)
+                {
+                    requestTelemetry.Source = sourceAppId;
+                }
+
                 SetAppIdInResponseHeader(httpContext, requestTelemetry);
             }
         }
@@ -162,7 +168,6 @@
                 var activity = new Activity(ActivityCreatedByHostingDiagnosticListener);
                 var isActivityCreatedFromRequestIdHeader = false;
 
-                string requestId;
                 string sourceAppId = null;
                 IHeaderDictionary requestHeaders = httpContext.Request.Headers;
 
@@ -175,7 +180,7 @@
                 else if (requestHeaders.TryGetValue(RequestResponseHeaders.RequestIdHeader, out StringValues requestIdValues) &&
                     requestIdValues != StringValues.Empty)
                 {
-                    requestId = StringUtilities.EnforceMaxLength(requestIdValues.First(), InjectionGuardConstants.RequestHeaderMaxLength);
+                    var requestId = StringUtilities.EnforceMaxLength(requestIdValues.First(), InjectionGuardConstants.RequestHeaderMaxLength);
                     isActivityCreatedFromRequestIdHeader = true;
                     activity.SetParentId(requestId);
 
@@ -219,6 +224,11 @@
                 httpContext.Features.Set(activity);
 
                 var requestTelemetry = InitializeRequestTelemetry(httpContext, activity, isActivityCreatedFromRequestIdHeader, timestamp);
+                if (sourceAppId != null)
+                {
+                    requestTelemetry.Source = sourceAppId;
+                }
+
                 SetAppIdInResponseHeader(httpContext, requestTelemetry);
             }
         }
@@ -383,8 +393,6 @@
                 {
                     activity.Stop();
                 }
-
-                SetAppIdInResponseHeader(httpContext, telemetry);
             }
         }
 

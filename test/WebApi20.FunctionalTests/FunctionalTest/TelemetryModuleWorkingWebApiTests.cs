@@ -1,19 +1,18 @@
-﻿using Microsoft.ApplicationInsights.AspNetCore;
-using Microsoft.ApplicationInsights.DependencyCollector;
-using Microsoft.ApplicationInsights.Extensibility;
-using Microsoft.Extensions.DependencyInjection;
-
-namespace WebApi20.FunctionalTests.FunctionalTest
+﻿namespace WebApi20.FunctionalTests.FunctionalTest
 {
     using FunctionalTestUtils;
     using System;
     using System.Diagnostics;
     using System.Linq;
+    using Microsoft.ApplicationInsights.AspNetCore;
+    using Microsoft.ApplicationInsights.DependencyCollector;
     using Microsoft.ApplicationInsights.DataContracts;
     using Microsoft.ApplicationInsights.W3C;
+    using Microsoft.Extensions.DependencyInjection;
     using Xunit;
     using Xunit.Abstractions;
 
+#pragma warning disable 612, 618
     public class TelemetryModuleWorkingWebApiTests : TelemetryTestsBase, IDisposable
     {
         private const string assemblyName = "WebApi20.FunctionalTests20";
@@ -28,7 +27,7 @@ namespace WebApi20.FunctionalTests.FunctionalTest
         {
             const string RequestPath = "/api/values";
 
-            using (var server = new InProcessServer(assemblyName, this.output, ConfigureApplicationIdProvider))
+            using (var server = new InProcessServer(assemblyName, this.output))
             {
                 DependencyTelemetry expected = new DependencyTelemetry();
                 expected.ResultCode = "200";
@@ -46,9 +45,8 @@ namespace WebApi20.FunctionalTests.FunctionalTest
             Environment.SetEnvironmentVariable("APPLICATIONINSIGHTS_ENABLE_W3C_TRACING", bool.TrueString);
             const string RequestPath = "/api/values";
 
-            using (var server = new InProcessServer(assemblyName, this.output, (builder) =>
+            using (var server = new InProcessServer(assemblyName, this.output, builder =>
             {
-                ConfigureApplicationIdProvider(builder);
                 return builder.ConfigureServices(
                     services =>
                     {
@@ -57,7 +55,7 @@ namespace WebApi20.FunctionalTests.FunctionalTest
                             services.Where(sd => sd.ServiceType == typeof(ITelemetryModuleConfigurator));
                         services.Remove(dependencyModuleConfigFactoryDescriptor.First());
 
-                        services.ConfigureTelemetryModule<DependencyTrackingTelemetryModule>(module => {});
+                        services.ConfigureTelemetryModule<DependencyTrackingTelemetryModule>((module, o) => {});
                     });
             }))
             {
@@ -100,4 +98,5 @@ namespace WebApi20.FunctionalTests.FunctionalTest
             Environment.SetEnvironmentVariable("APPLICATIONINSIGHTS_ENABLE_W3C_TRACING", null);
         }
     }
+#pragma warning restore 612, 618
 }

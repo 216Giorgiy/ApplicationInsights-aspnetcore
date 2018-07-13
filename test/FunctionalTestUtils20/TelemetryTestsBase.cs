@@ -26,9 +26,6 @@
 
     public abstract class TelemetryTestsBase
     {
-        public const string IKey = "Foo";
-        public const string AppId = "Bar";
-
         public const int TestListenerTimeoutInMs = 10000;
         protected readonly ITestOutputHelper output;
         
@@ -42,7 +39,7 @@
 <<<<<<< HEAD
 =======
         {
-            return ValidateRequestWithHeaders(server, requestPath, null, expected);
+            return ValidateRequestWithHeaders(server, requestPath, null, expected, expectRequestContextInResponse);
         }
 
         [MethodImpl(MethodImplOptions.NoOptimization)]
@@ -73,7 +70,7 @@
             if (expectRequestContextInResponse)
             {
                 Assert.True(response.Headers.TryGetValues("Request-Context", out var appIds));
-                Assert.Equal($"appId={AppId}", appIds.Single());
+                Assert.Equal($"appId={InProcessServer.AppId}", appIds.Single());
             }
 
             output.WriteLine("actual.Duration: " + data.duration);
@@ -100,7 +97,7 @@
 
         public (TelemetryItem<RequestData>, TelemetryItem<RemoteDependencyData>) ValidateBasicDependency(InProcessServer server, string requestPath, DependencyTelemetry expected)
         {
-            this.ExecuteRequest(server.BaseHost + requestPath);
+            var response = this.ExecuteRequest(server.BaseHost + requestPath);
 
             var actual = server.Listener.ReceiveItems(TestListenerTimeoutInMs);
             this.DebugTelemetryItems(actual);
@@ -115,8 +112,8 @@
             var requestTelemetry = actual.OfType<TelemetryItem<RequestData>>().FirstOrDefault();
             Assert.NotNull(requestTelemetry);
 
-            Assert.Contains(dependencyTelemetry.data.baseData.id, requestTelemetry.tags["ai.operation.parentId"]);
             Assert.Equal(requestTelemetry.tags["ai.operation.id"], dependencyTelemetry.tags["ai.operation.id"]);
+            Assert.Contains(dependencyTelemetry.data.baseData.id, requestTelemetry.tags["ai.operation.parentId"]);
 
             return (requestTelemetry, dependencyTelemetry);
         }
@@ -140,24 +137,6 @@
         }
 #endif
 
-<<<<<<< HEAD
-=======
-        public IWebHostBuilder ConfigureApplicationIdProvider(IWebHostBuilder builder)
-        {
-            return builder.ConfigureServices(services =>
-            {
-                services.AddSingleton<IApplicationIdProvider>( provider => new DictionaryApplicationIdProvider
-                {
-                    Defined = new Dictionary<string, string>
-                    {
-                        [IKey] = AppId
-                    }
-                });
-                services.AddApplicationInsightsTelemetry();
-            });
-        }
-
->>>>>>> af1cddd... check request-context
         protected HttpResponseMessage ExecuteRequest(string requestPath, Dictionary<string, string> headers = null)
         {
             var httpClientHandler = new HttpClientHandler();

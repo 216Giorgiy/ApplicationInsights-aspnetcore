@@ -29,7 +29,7 @@
         [Fact]
         public void TestBasicRequestPropertiesAfterRequestingValuesController()
         {
-            using (var server = new InProcessServer(assemblyName, this.output, ConfigureApplicationIdProvider))
+            using (var server = new InProcessServer(assemblyName, this.output))
             {
                 const string RequestPath = "/api/values";
 
@@ -46,7 +46,7 @@
         [Fact]
         public void TestBasicRequestPropertiesAfterRequestingNotExistingController()
         {
-            using (var server = new InProcessServer(assemblyName, this.output, ConfigureApplicationIdProvider))
+            using (var server = new InProcessServer(assemblyName, this.output))
             {
                 const string RequestPath = "/api/notexistingcontroller";
 
@@ -63,7 +63,7 @@
         [Fact]
         public void TestBasicRequestPropertiesAfterRequestingWebApiShimRoute()
         {
-            using (var server = new InProcessServer(assemblyName, this.output, ConfigureApplicationIdProvider))
+            using (var server = new InProcessServer(assemblyName, this.output))
             {
                 const string RequestPath = "/api/values/1";
 
@@ -102,7 +102,6 @@
             }
         }
 
-<<<<<<< HEAD
         [Fact]
         public void TestW3COperationIdFormatGeneration()
         {
@@ -135,10 +134,11 @@
                 // end of workaround test
             }
         }
-=======
+
+        [Fact]
         public void TestW3CHeadersAreNotEnabledByDefault()
         {
-            using (var server = new InProcessServer(assemblyName, this.output, ConfigureApplicationIdProvider))
+            using (var server = new InProcessServer(assemblyName, this.output))
             {
                 const string RequestPath = "/api/values";
 
@@ -166,7 +166,7 @@
         public void TestW3CHeadersAreParsedWhenEnabledInConfig()
         {
             Environment.SetEnvironmentVariable("APPLICATIONINSIGHTS_ENABLE_W3C_TRACING", bool.TrueString);
-            using (var server = new InProcessServer(assemblyName, this.output, ConfigureApplicationIdProvider))
+            using (var server = new InProcessServer(assemblyName, this.output))
             {
                 const string RequestPath = "/api/values";
 
@@ -197,7 +197,7 @@
         public void TestW3CIsUsedWithoutHeadersWhenEnabledInConfig()
         {
             Environment.SetEnvironmentVariable("APPLICATIONINSIGHTS_ENABLE_W3C_TRACING", bool.TrueString);
-            using (var server = new InProcessServer(assemblyName, this.output, ConfigureApplicationIdProvider))
+            using (var server = new InProcessServer(assemblyName, this.output))
             {
                 const string RequestPath = "/api/values";
 
@@ -224,7 +224,6 @@
 
             Environment.SetEnvironmentVariable("APPLICATIONINSIGHTS_ENABLE_W3C_TRACING", null);
         }
->>>>>>> a758c05... Experimental support for W3C headers
     }
 }
 

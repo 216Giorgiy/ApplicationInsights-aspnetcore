@@ -52,7 +52,7 @@ namespace FunctionalTestUtils
             this.httpListenerConnectionString = LauchApplicationAndStartListener(assemblyName);
         }
 
-        private string LauchApplicationAndStartListener(string assemblyName, Func<IWebHostBuilder, IWebHostBuilder> configureHost = null)
+        private string LauchApplicationAndStartListener(string assemblyName)
         {
             string listenerConnectionString = "";
             bool listenerStarted = false;
@@ -60,7 +60,7 @@ namespace FunctionalTestUtils
             while (retryCount <= 3)
             {
                 output.WriteLine(string.Format("{0}: Attempt {1} to StartApplication", DateTime.Now.ToString("MM/dd/yyyy hh:mm:ss.fff tt"), retryCount));
-                listenerConnectionString = StartApplication(assemblyName, configureHost);
+                listenerConnectionString = StartApplication(assemblyName);
                 listenerStarted = StartListener(listenerConnectionString);
                 if(listenerStarted)
                 {
@@ -100,10 +100,10 @@ namespace FunctionalTestUtils
             return true;
         }
 
-        private string StartApplication(string assemblyName, Func<IWebHostBuilder, IWebHostBuilder> configureHost = null)
+        private string StartApplication(string assemblyName)
         {
             output.WriteLine(string.Format("{0}: Launching application at: {1}", DateTime.Now.ToString("MM/dd/yyyy hh:mm:ss.fff tt"), this.url));
-            return this.Start(assemblyName, configureHost);
+            return this.Start(assemblyName);
         }
 
         private void StopApplication()
@@ -134,7 +134,7 @@ namespace FunctionalTestUtils
 
         public IServiceProvider ApplicationServices { get; private set; }
 
-        private string Start(string assemblyName, Func<IWebHostBuilder, IWebHostBuilder> configureHost = null)
+        private string Start(string assemblyName)
         {
             var builder = new WebHostBuilder()
                 .UseContentRoot(Directory.GetCurrentDirectory())
@@ -151,9 +151,9 @@ namespace FunctionalTestUtils
                     });
             });
             
-            if (configureHost != null)
+            if (this.configureHost != null)
             {
-                builder = configureHost(builder);
+                builder = this.configureHost(builder);
             }
             
             this.hostingEngine = builder.Build();

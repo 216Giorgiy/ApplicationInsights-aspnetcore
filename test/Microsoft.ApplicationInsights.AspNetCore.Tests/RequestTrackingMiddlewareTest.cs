@@ -542,7 +542,8 @@
                 CommonMocks.MockTelemetryClient(telemetry => this.sentTelemetry.Enqueue(telemetry)),
                 CommonMocks.GetMockApplicationIdProvider(),
                 injectResponseHeaders: false,
-                trackExceptions: true);
+                trackExceptions: true,
+                enableW3CHeaders: false);
 
             noHeadersMiddleware.OnBeginRequest(context, 0);
             Assert.False(context.Response.Headers.ContainsKey(RequestResponseHeaders.RequestContextHeader));
@@ -562,7 +563,8 @@
                 CommonMocks.MockTelemetryClient(telemetry => this.sentTelemetry.Enqueue(telemetry)),
                 CommonMocks.GetMockApplicationIdProvider(),
                 injectResponseHeaders: true,
-                trackExceptions: false);
+                trackExceptions: false,
+                enableW3CHeaders: false);
 
             noExceptionsMiddleware.OnHostingException(context, new Exception("HostingException"));
             noExceptionsMiddleware.OnDiagnosticsHandledException(context, new Exception("DiagnosticsHandledException"));
@@ -595,6 +597,8 @@
             this.middleware = new HostingDiagnosticListener(
                 CommonMocks.MockTelemetryClient(telemetry => this.sentTelemetry.Enqueue(telemetry), configuration),
                 CommonMocks.GetMockApplicationIdProvider(),
+                injectResponseHeaders: true,
+                trackExceptions: true,
                 enableW3CHeaders: true);
 
             var context = CreateContext(HttpRequestScheme, HttpRequestHost, "/Test", method: "POST");
@@ -653,6 +657,8 @@
             this.middleware = new HostingDiagnosticListener(
                 CommonMocks.MockTelemetryClient(telemetry => this.sentTelemetry.Enqueue(telemetry), configuration),
                 CommonMocks.GetMockApplicationIdProvider(),
+                injectResponseHeaders: true,
+                trackExceptions: true,
                 enableW3CHeaders: true);
 
             var context = CreateContext(HttpRequestScheme, HttpRequestHost, "/Test", method: "POST");
@@ -712,6 +718,8 @@
             this.middleware = new HostingDiagnosticListener(
                 CommonMocks.MockTelemetryClient(telemetry => this.sentTelemetry.Enqueue(telemetry), configuration),
                 CommonMocks.GetMockApplicationIdProvider(),
+                injectResponseHeaders: true,
+                trackExceptions: true,
                 enableW3CHeaders: true);
 
             var context = CreateContext(HttpRequestScheme, HttpRequestHost, "/Test", method: "POST");
@@ -733,7 +741,7 @@
             Assert.Equal(activityInitializedByW3CHeader.ParentId, activityInitializedByW3CHeader.GetTraceId());
             Assert.Equal(32, activityInitializedByW3CHeader.GetTraceId().Length);
             Assert.Equal(16, activityInitializedByW3CHeader.GetSpanId().Length);
-            Assert.Equal($"00-{activityInitializedByW3CHeader.GetTraceId()}-{activityInitializedByW3CHeader.GetSpanId()}-01",
+            Assert.Equal($"00-{activityInitializedByW3CHeader.GetTraceId()}-{activityInitializedByW3CHeader.GetSpanId()}-00",
                 activityInitializedByW3CHeader.GetTraceParent());
             Assert.Null(activityInitializedByW3CHeader.GetTraceState());
             Assert.Empty(activityInitializedByW3CHeader.Baggage);
@@ -766,11 +774,13 @@
             this.middleware = new HostingDiagnosticListener(
                 CommonMocks.MockTelemetryClient(telemetry => this.sentTelemetry.Enqueue(telemetry), configuration),
                 CommonMocks.GetMockApplicationIdProvider(),
+                injectResponseHeaders: true,
+                trackExceptions: true,
                 enableW3CHeaders: true);
 
             var context = CreateContext(HttpRequestScheme, HttpRequestHost, "/Test", method: "POST");
 
-            context.Request.Headers[W3CConstants.TraceParentHeader] = "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01";
+            context.Request.Headers[W3CConstants.TraceParentHeader] = "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-00";
             context.Request.Headers[W3CConstants.TraceStateHeader] = $"state=some,msappid={ExpectedAppId}";
 
             if (HostingDiagnosticListener.IsAspNetCore20)
