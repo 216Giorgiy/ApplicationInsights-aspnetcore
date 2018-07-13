@@ -283,19 +283,18 @@
         {
             var requestTelemetry = new RequestTelemetry();
 
-            StringValues standardParentId;
             if (isActivityCreatedFromRequestIdHeader)
             {
                 requestTelemetry.Context.Operation.ParentId = activity.ParentId;
             }
-            else if (httpContext.Request.Headers.TryGetValue(RequestResponseHeaders.StandardParentIdHeader, out standardParentId))
+            else if (httpContext.Request.Headers.TryGetValue(RequestResponseHeaders.StandardParentIdHeader, out var standardParentId))
             {
                 standardParentId = StringUtilities.EnforceMaxLength(standardParentId, InjectionGuardConstants.RequestHeaderMaxLength);
                 requestTelemetry.Context.Operation.ParentId = standardParentId;
             }
 
-            requestTelemetry.Id = activity.Id;
             requestTelemetry.Context.Operation.Id = activity.RootId;
+            requestTelemetry.Id = this.enableW3CHeaders ? activity.GetSpanId() : activity.Id;
 
             foreach (var prop in activity.Baggage)
             {

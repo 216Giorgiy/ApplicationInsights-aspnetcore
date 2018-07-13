@@ -668,19 +668,7 @@
             context.Request.Headers[W3CConstants.TraceStateHeader] = "state=some";
             context.Request.Headers[RequestResponseHeaders.CorrelationContextHeader] = "k=v";
 
-            if (HostingDiagnosticListener.IsAspNetCore20)
-            {
-                var activity = new Activity("operation");
-                activity.Start();
-
-                middleware.OnHttpRequestInStart(context);
-                Assert.NotEqual(Activity.Current, activity);
-            }
-            else
-            {
-                middleware.OnBeginRequest(context, Stopwatch.GetTimestamp());
-            }
-
+            middleware.OnBeginRequest(context, Stopwatch.GetTimestamp());
             var activityInitializedByW3CHeader = Activity.Current;
 
             Assert.Equal("4bf92f3577b34da6a3ce929d0e0e4736", activityInitializedByW3CHeader.ParentId);
@@ -690,14 +678,7 @@
             Assert.Equal("state=some", activityInitializedByW3CHeader.GetTraceState());
             Assert.Equal("v", activityInitializedByW3CHeader.Baggage.Single(t => t.Key == "k").Value);
 
-            if (HostingDiagnosticListener.IsAspNetCore20)
-            {
-                middleware.OnHttpRequestInStop(context);
-            }
-            else
-            {
-                middleware.OnEndRequest(context, Stopwatch.GetTimestamp());
-            }
+            middleware.OnEndRequest(context, Stopwatch.GetTimestamp());
 
             Assert.Single(sentTelemetry);
             var requestTelemetry = (RequestTelemetry)this.sentTelemetry.Single();
@@ -724,17 +705,7 @@
 
             var context = CreateContext(HttpRequestScheme, HttpRequestHost, "/Test", method: "POST");
 
-            if (HostingDiagnosticListener.IsAspNetCore20)
-            {
-                var activity = new Activity("operation");
-                activity.Start();
-                middleware.OnHttpRequestInStart(context);
-                Assert.NotEqual(Activity.Current, activity);
-            }
-            else
-            {
-                middleware.OnBeginRequest(context, Stopwatch.GetTimestamp());
-            }
+            middleware.OnBeginRequest(context, Stopwatch.GetTimestamp());
 
             var activityInitializedByW3CHeader = Activity.Current;
             Assert.NotNull(activityInitializedByW3CHeader.ParentId);
@@ -746,14 +717,7 @@
             Assert.Null(activityInitializedByW3CHeader.GetTraceState());
             Assert.Empty(activityInitializedByW3CHeader.Baggage);
 
-            if (HostingDiagnosticListener.IsAspNetCore20)
-            {
-                middleware.OnHttpRequestInStop(context);
-            }
-            else
-            {
-                middleware.OnEndRequest(context, Stopwatch.GetTimestamp());
-            }
+            middleware.OnEndRequest(context, Stopwatch.GetTimestamp());
 
             Assert.Single(sentTelemetry);
             var requestTelemetry = (RequestTelemetry)this.sentTelemetry.Single();
