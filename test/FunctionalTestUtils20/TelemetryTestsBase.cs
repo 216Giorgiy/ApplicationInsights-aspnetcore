@@ -13,15 +13,12 @@
     using System.Threading.Tasks;
     using AI;
     using Microsoft.ApplicationInsights.DataContracts;
-    using Microsoft.ApplicationInsights.Extensibility.Implementation.ApplicationId;
-    using Microsoft.AspNetCore.Hosting;
     using Microsoft.Extensions.DependencyInjection;
     using Xunit;
     using Xunit.Abstractions;
     using Microsoft.ApplicationInsights.Extensibility;
 #if NET451 || NET461
     using Microsoft.ApplicationInsights.Extensibility.PerfCounterCollector;
-    using Microsoft.ApplicationInsights.Extensibility;
 #endif
 
     public abstract class TelemetryTestsBase
@@ -36,15 +33,12 @@
 
         [MethodImpl(MethodImplOptions.NoOptimization)]
         public TelemetryItem<RequestData> ValidateBasicRequest(InProcessServer server, string requestPath, RequestTelemetry expected, bool expectRequestContextInResponse = true)
-<<<<<<< HEAD
-=======
         {
             return ValidateRequestWithHeaders(server, requestPath, null, expected, expectRequestContextInResponse);
         }
 
         [MethodImpl(MethodImplOptions.NoOptimization)]
         public TelemetryItem<RequestData> ValidateRequestWithHeaders(InProcessServer server, string requestPath, Dictionary<string, string> requestHeaders, RequestTelemetry expected, bool expectRequestContextInResponse = true)
->>>>>>> a758c05... Experimental support for W3C headers
         {
             // Subtract 50 milliseconds to hack around strange behavior on build server where the RequestTelemetry.Timestamp is somehow sometimes earlier than now by a few milliseconds.
             expected.Timestamp = DateTimeOffset.Now.Subtract(TimeSpan.FromMilliseconds(50));
