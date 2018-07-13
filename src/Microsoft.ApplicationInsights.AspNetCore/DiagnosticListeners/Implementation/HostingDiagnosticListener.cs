@@ -37,6 +37,8 @@
         private readonly bool injectResponseHeaders;
         private readonly bool trackExceptions;
         private readonly bool enableW3CHeaders;
+        private readonly W3COperationCorrelationTelemetryInitializer w3cInitializer;
+
         private const string ActivityCreatedByHostingDiagnosticListener = "ActivityCreatedByHostingDiagnosticListener";
 
         /// <summary>
@@ -54,6 +56,10 @@
             this.injectResponseHeaders = injectResponseHeaders;
             this.trackExceptions = trackExceptions;
             this.enableW3CHeaders = enableW3CHeaders;
+            if (enableW3CHeaders)
+            {
+                this.w3cInitializer = new W3COperationCorrelationTelemetryInitializer();
+            }
         }
 
         /// <inheritdoc/>
@@ -293,8 +299,15 @@
                 requestTelemetry.Context.Operation.ParentId = standardParentId;
             }
 
-            requestTelemetry.Context.Operation.Id = activity.RootId;
-            requestTelemetry.Id = this.enableW3CHeaders ? activity.GetSpanId() : activity.Id;
+            if (this.enableW3CHeaders)
+            {
+                w3cInitializer.Initialize(requestTelemetry);
+            }
+            else
+            {
+                requestTelemetry.Context.Operation.Id = activity.RootId;
+                requestTelemetry.Id = activity.Id;
+            }
 
             foreach (var prop in activity.Baggage)
             {
@@ -429,6 +442,22 @@
 
             if (traceStateValues != null && traceStateValues.Any())
             {
+                /*if (traceStateValues.Sum(p => p.Length) > InjectionGuardConstants.TraceStateHeaderMaxLength)
+                {
+                    int currentLength = 0;
+                    int lastValidIndex = 0;
+                    for (int i = 0; i < traceStateValues.Length; i++)
+                    {
+                        if (currentLength + traceStateValues[i].Length > InjectionGuardConstants.TraceStateHeaderMaxLength)
+                        {
+                            lastValidIndex = i;
+                            break;
+                        }
+
+                        currentLength += traceStateValues[i].Length;
+                    }
+                }*/
+
                 var sourceAppIdStr = traceStateValues.FirstOrDefault(s => s.StartsWith("msappid"));
                 if (sourceAppIdStr != null)
                 {
