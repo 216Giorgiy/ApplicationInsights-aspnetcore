@@ -89,7 +89,11 @@ namespace Microsoft.Extensions.DependencyInjection
             this.AddQuickPulse(configuration);
             this.AddSampling(configuration);
             this.DisableHeartBeatIfConfigured();
-            this.EnableW3CHeaders(configuration);
+
+            if (applicationInsightsServiceOptions.RequestCollectionOptions.EnableW3CDistributedTracing)
+            {
+                this.EnableW3CHeaders(configuration);
+            }
 
             configuration.TelemetryProcessorChainBuilder.Build();            
 
@@ -183,10 +187,7 @@ namespace Microsoft.Extensions.DependencyInjection
 #pragma warning disable 612, 618
         private void EnableW3CHeaders(TelemetryConfiguration configuration)
         {
-            if (W3CConstants.IsW3CTracingEnabled())
-            {
-                configuration.TelemetryInitializers.Add(new W3COperationCorrelationTelemetryInitializer());
-            }
+            configuration.TelemetryInitializers.Add(new W3COperationCorrelationTelemetryInitializer());
         }
 #pragma warning restore 612, 618
     }

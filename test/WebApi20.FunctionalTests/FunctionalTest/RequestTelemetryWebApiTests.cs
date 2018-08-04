@@ -1,4 +1,4 @@
-﻿﻿namespace WebApi20.FunctionalTests.FunctionalTest
+﻿namespace WebApi20.FunctionalTests.FunctionalTest
 {
     using System;
     using System.Collections.Generic;
@@ -7,15 +7,10 @@
     using System.Text.RegularExpressions;
 
     using FunctionalTestUtils;
-    using Microsoft.ApplicationInsights.AspNetCore.Extensions;
-    using Microsoft.ApplicationInsights.Extensibility;
-    using Microsoft.ApplicationInsights.Extensibility.Implementation.ApplicationId;
     using Microsoft.AspNetCore.Hosting;
     using Microsoft.Extensions.DependencyInjection;
     using Microsoft.ApplicationInsights.DataContracts;
     using Microsoft.ApplicationInsights.DependencyCollector;
-    using Microsoft.AspNetCore.Hosting;
-    using Microsoft.Extensions.DependencyInjection;
     using Xunit;
     using Xunit.Abstractions;
 
@@ -165,8 +160,13 @@
         [Fact]
         public void TestW3CHeadersAreParsedWhenEnabledInConfig()
         {
-            Environment.SetEnvironmentVariable("APPLICATIONINSIGHTS_ENABLE_W3C_TRACING", bool.TrueString);
-            using (var server = new InProcessServer(assemblyName, this.output))
+            using (var server = new InProcessServer(assemblyName, this.output, builder =>
+            {
+                return builder.ConfigureServices( services =>
+                {
+                    services.AddApplicationInsightsTelemetry(o => o.RequestCollectionOptions.EnableW3CDistributedTracing = true);
+                });
+            }))
             {
                 const string RequestPath = "/api/values";
 
@@ -187,17 +187,90 @@
                 var actualRequest = this.ValidateRequestWithHeaders(server, RequestPath, headers, expectedRequestTelemetry);
 
                 Assert.Equal("4bf92f3577b34da6a3ce929d0e0e4736", actualRequest.tags["ai.operation.id"]);
-                Assert.Equal("00f067aa0ba902b7", actualRequest.tags["ai.operation.parentId"]);
+                Assert.Equal("|4bf92f3577b34da6a3ce929d0e0e4736.00f067aa0ba902b7.", actualRequest.tags["ai.operation.parentId"]);
                 Assert.Equal("v1", actualRequest.data.baseData.properties["k1"]);
                 Assert.Equal("v2", actualRequest.data.baseData.properties["k2"]);
             }
         }
 
         [Fact]
+        public void TestW3CEnabledRequestIdAndW3CHeaders()
+        {
+            using (var server = new InProcessServer(assemblyName, this.output, builder =>
+            {
+                return builder.ConfigureServices(services =>
+                {
+                    services.AddApplicationInsightsTelemetry(o => o.RequestCollectionOptions.EnableW3CDistributedTracing = true);
+                });
+            }))
+            {
+                const string RequestPath = "/api/values";
+
+                var expectedRequestTelemetry = new RequestTelemetry();
+                expectedRequestTelemetry.Name = "GET Values/Get";
+                expectedRequestTelemetry.ResponseCode = "200";
+                expectedRequestTelemetry.Success = true;
+                expectedRequestTelemetry.Url = new Uri(server.BaseHost + RequestPath);
+
+                // this will force Request-Id header injection, it will start with |abc.123.
+                var activity = new Activity("dummy").SetParentId("|abc.123.").Start();
+                var headers = new Dictionary<string, string>
+                {
+                    ["traceparent"] = "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01",
+                    ["tracestate"] = "some=state",
+                    ["Correlation-Context"] = "k1=v1,k2=v2"
+                };
+
+                var actualRequest = this.ValidateRequestWithHeaders(server, RequestPath, headers, expectedRequestTelemetry);
+
+                Assert.Equal("4bf92f3577b34da6a3ce929d0e0e4736", actualRequest.tags["ai.operation.id"]);
+                Assert.Equal("|4bf92f3577b34da6a3ce929d0e0e4736.00f067aa0ba902b7.", actualRequest.tags["ai.operation.parentId"]);
+                Assert.Equal("v1", actualRequest.data.baseData.properties["k1"]);
+                Assert.Equal("v2", actualRequest.data.baseData.properties["k2"]);
+                Assert.Equal("abc", actualRequest.data.baseData.properties["ai_legacyRootId"]);
+                Assert.StartsWith("|abc.123", actualRequest.data.baseData.properties["ai_legacyParentId"]);
+            }
+        }
+        [Fact]
+        public void TestW3CEnabledRequestIdAndNoW3CHeaders()
+        {
+            using (var server = new InProcessServer(assemblyName, this.output,
+                builder =>
+                {
+                    return builder.ConfigureServices(services =>
+                    {
+                        services.AddApplicationInsightsTelemetry(o => o.RequestCollectionOptions.EnableW3CDistributedTracing = true);
+                    });
+                }))
+            {
+                const string RequestPath = "/api/values";
+
+                var expectedRequestTelemetry = new RequestTelemetry();
+                expectedRequestTelemetry.Name = "GET Values/Get";
+                expectedRequestTelemetry.ResponseCode = "200";
+                expectedRequestTelemetry.Success = true;
+                expectedRequestTelemetry.Url = new Uri(server.BaseHost + RequestPath);
+
+                // this will force Request-Id header injection, it will start with |abc.123.
+                var activity = new Activity("dummy").SetParentId("|abc.123.").Start();
+                var actualRequest = this.ValidateBasicRequest(server, RequestPath, expectedRequestTelemetry);
+
+                Assert.Equal(32, actualRequest.tags["ai.operation.id"].Length);
+                Assert.StartsWith("|abc.123.", actualRequest.tags["ai.operation.parentId"]);
+            }
+        }
+
+        [Fact]
         public void TestW3CIsUsedWithoutHeadersWhenEnabledInConfig()
         {
-            Environment.SetEnvironmentVariable("APPLICATIONINSIGHTS_ENABLE_W3C_TRACING", bool.TrueString);
-            using (var server = new InProcessServer(assemblyName, this.output))
+            using (var server = new InProcessServer(assemblyName, this.output,
+                builder =>
+                {
+                    return builder.ConfigureServices(services =>
+                    {
+                        services.AddApplicationInsightsTelemetry(o => o.RequestCollectionOptions.EnableW3CDistributedTracing = true);
+                    });
+                }))
             {
                 const string RequestPath = "/api/values";
 
@@ -210,8 +283,7 @@
                 var actualRequest = this.ValidateBasicRequest(server, RequestPath, expectedRequestTelemetry);
 
                 Assert.Equal(32, actualRequest.tags["ai.operation.id"].Length);
-                Assert.False(actualRequest.tags.ContainsKey("ai.operation.parentId"));
-                Assert.Equal(16, actualRequest.data.baseData.id.Length);
+                Assert.Equal(1 + 32 + 1 + 16 + 1, actualRequest.data.baseData.id.Length);
             }
         }
 
@@ -221,8 +293,6 @@
             {
                 Activity.Current.Stop();
             }
-
-            Environment.SetEnvironmentVariable("APPLICATIONINSIGHTS_ENABLE_W3C_TRACING", null);
         }
     }
 }

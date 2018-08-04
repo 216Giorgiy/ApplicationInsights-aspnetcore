@@ -622,7 +622,6 @@
             }
 
             var activityInitializedByW3CHeader = Activity.Current;
-            Assert.Equal("4bf92f3577b34da6a3ce929d0e0e4736", activityInitializedByW3CHeader.ParentId);
             Assert.Equal("4bf92f3577b34da6a3ce929d0e0e4736", activityInitializedByW3CHeader.GetTraceId());
             Assert.Equal("00f067aa0ba902b7", activityInitializedByW3CHeader.GetParentSpanId());
             Assert.Equal(16, activityInitializedByW3CHeader.GetSpanId().Length);
@@ -641,9 +640,9 @@
             Assert.Single(sentTelemetry);
             var requestTelemetry = (RequestTelemetry)this.sentTelemetry.Single();
 
-            Assert.Equal(activityInitializedByW3CHeader.GetSpanId(), requestTelemetry.Id);
+            Assert.Equal($"|4bf92f3577b34da6a3ce929d0e0e4736.{activityInitializedByW3CHeader.GetSpanId()}.", requestTelemetry.Id);
             Assert.Equal("4bf92f3577b34da6a3ce929d0e0e4736", requestTelemetry.Context.Operation.Id);
-            Assert.Equal("00f067aa0ba902b7", requestTelemetry.Context.Operation.ParentId);
+            Assert.Equal("|4bf92f3577b34da6a3ce929d0e0e4736.00f067aa0ba902b7.", requestTelemetry.Context.Operation.ParentId);
 
             Assert.True(context.Response.Headers.TryGetValue(RequestResponseHeaders.RequestContextHeader, out var appId));
             Assert.Equal($"appId={CommonMocks.TestApplicationId}", appId);
@@ -671,7 +670,7 @@
             middleware.OnBeginRequest(context, Stopwatch.GetTimestamp());
             var activityInitializedByW3CHeader = Activity.Current;
 
-            Assert.Equal("4bf92f3577b34da6a3ce929d0e0e4736", activityInitializedByW3CHeader.ParentId);
+            Assert.Equal("|abc.1.2.3.", activityInitializedByW3CHeader.ParentId);
             Assert.Equal("4bf92f3577b34da6a3ce929d0e0e4736", activityInitializedByW3CHeader.GetTraceId());
             Assert.Equal("00f067aa0ba902b7", activityInitializedByW3CHeader.GetParentSpanId());
             Assert.Equal(16, activityInitializedByW3CHeader.GetSpanId().Length);
@@ -683,12 +682,49 @@
             Assert.Single(sentTelemetry);
             var requestTelemetry = (RequestTelemetry)this.sentTelemetry.Single();
 
-            Assert.Equal(activityInitializedByW3CHeader.GetSpanId(), requestTelemetry.Id);
+            Assert.Equal($"|4bf92f3577b34da6a3ce929d0e0e4736.{activityInitializedByW3CHeader.GetSpanId()}.", requestTelemetry.Id);
             Assert.Equal("4bf92f3577b34da6a3ce929d0e0e4736", requestTelemetry.Context.Operation.Id);
-            Assert.Equal("00f067aa0ba902b7", requestTelemetry.Context.Operation.ParentId);
+            Assert.Equal("|4bf92f3577b34da6a3ce929d0e0e4736.00f067aa0ba902b7.", requestTelemetry.Context.Operation.ParentId);
 
             Assert.True(context.Response.Headers.TryGetValue(RequestResponseHeaders.RequestContextHeader, out var appId));
             Assert.Equal($"appId={CommonMocks.TestApplicationId}", appId);
+
+            Assert.Equal("abc", requestTelemetry.Properties["ai_legacyRootId"]);
+            Assert.StartsWith("|abc.1.2.3.", requestTelemetry.Properties["ai_legacyParentId"]);
+        }
+
+        [Fact]
+        public void OnHttpRequestInStartWithNoW3CHeadersAndRequestIdIsTrackedCorrectly()
+        {
+            var configuration = TelemetryConfiguration.CreateDefault();
+            configuration.TelemetryInitializers.Add(new W3COperationCorrelationTelemetryInitializer());
+            this.middleware = new HostingDiagnosticListener(
+                CommonMocks.MockTelemetryClient(telemetry => this.sentTelemetry.Enqueue(telemetry), configuration),
+                CommonMocks.GetMockApplicationIdProvider(),
+                injectResponseHeaders: true,
+                trackExceptions: true,
+                enableW3CHeaders: true);
+
+            var context = CreateContext(HttpRequestScheme, HttpRequestHost, "/Test", method: "POST");
+
+            context.Request.Headers[RequestResponseHeaders.RequestIdHeader] = "|abc.1.2.3.";
+            context.Request.Headers[RequestResponseHeaders.CorrelationContextHeader] = "k=v";
+
+            middleware.OnBeginRequest(context, Stopwatch.GetTimestamp());
+            var activityInitializedByW3CHeader = Activity.Current;
+
+            Assert.Equal("|abc.1.2.3.", activityInitializedByW3CHeader.ParentId);
+            middleware.OnEndRequest(context, Stopwatch.GetTimestamp());
+
+            Assert.Single(sentTelemetry);
+            var requestTelemetry = (RequestTelemetry)this.sentTelemetry.Single();
+
+            Assert.Equal($"|{activityInitializedByW3CHeader.GetTraceId()}.{activityInitializedByW3CHeader.GetSpanId()}.", requestTelemetry.Id);
+            Assert.Equal(activityInitializedByW3CHeader.GetTraceId(), requestTelemetry.Context.Operation.Id);
+            Assert.Equal("|abc.1.2.3.", requestTelemetry.Context.Operation.ParentId);
+
+            Assert.Equal("abc", requestTelemetry.Properties["ai_legacyRootId"]);
+            Assert.StartsWith("|abc.1.2.3.", requestTelemetry.Properties["ai_legacyParentId"]);
         }
 
         [Fact]
@@ -708,8 +744,8 @@
             middleware.OnBeginRequest(context, Stopwatch.GetTimestamp());
 
             var activityInitializedByW3CHeader = Activity.Current;
-            Assert.NotNull(activityInitializedByW3CHeader.ParentId);
-            Assert.Equal(activityInitializedByW3CHeader.ParentId, activityInitializedByW3CHeader.GetTraceId());
+            Assert.Null(activityInitializedByW3CHeader.ParentId);
+            Assert.NotNull(activityInitializedByW3CHeader.GetTraceId());
             Assert.Equal(32, activityInitializedByW3CHeader.GetTraceId().Length);
             Assert.Equal(16, activityInitializedByW3CHeader.GetSpanId().Length);
             Assert.Equal($"00-{activityInitializedByW3CHeader.GetTraceId()}-{activityInitializedByW3CHeader.GetSpanId()}-00",
@@ -722,7 +758,7 @@
             Assert.Single(sentTelemetry);
             var requestTelemetry = (RequestTelemetry)this.sentTelemetry.Single();
 
-            Assert.Equal(activityInitializedByW3CHeader.GetSpanId(), requestTelemetry.Id);
+            Assert.Equal($"|{activityInitializedByW3CHeader.GetTraceId()}.{activityInitializedByW3CHeader.GetSpanId()}.", requestTelemetry.Id);
             Assert.Equal(activityInitializedByW3CHeader.GetTraceId(), requestTelemetry.Context.Operation.Id);
             Assert.Null(requestTelemetry.Context.Operation.ParentId);
 

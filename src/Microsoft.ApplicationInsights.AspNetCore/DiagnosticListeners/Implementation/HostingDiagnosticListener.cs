@@ -37,7 +37,6 @@
         private readonly bool injectResponseHeaders;
         private readonly bool trackExceptions;
         private readonly bool enableW3CHeaders;
-        private readonly W3COperationCorrelationTelemetryInitializer w3cInitializer;
 
         private const string ActivityCreatedByHostingDiagnosticListener = "ActivityCreatedByHostingDiagnosticListener";
 
@@ -56,10 +55,6 @@
             this.injectResponseHeaders = injectResponseHeaders;
             this.trackExceptions = trackExceptions;
             this.enableW3CHeaders = enableW3CHeaders;
-            if (enableW3CHeaders)
-            {
-                this.w3cInitializer = new W3COperationCorrelationTelemetryInitializer();
-            }
         }
 
         /// <inheritdoc/>
@@ -92,46 +87,27 @@
                 var isActivityCreatedFromRequestIdHeader = true;
                 string sourceAppId = null;
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-                if (currentActivity.ParentId != null)
-=======
-=======
+                Activity newActivity = null;
                 // W3C
->>>>>>> 4f93728... tracestate validation and tests
                 if (this.enableW3CHeaders)
->>>>>>> a758c05... Experimental support for W3C headers
                 {
                     isActivityCreatedFromRequestIdHeader = false;
-                    var activity = new Activity(ActivityCreatedByHostingDiagnosticListener);
-
-                    SetW3CContext(httpContext.Request.Headers, activity, out sourceAppId);
-                    activity.SetParentId(activity.GetTraceId()).Start();
+                    SetW3CContext(httpContext.Request.Headers, currentActivity, out sourceAppId);
                 }
-<<<<<<< HEAD
-<<<<<<< HEAD
-                else if (httpContext.Request.Headers.TryGetValue(RequestResponseHeaders.StandardRootIdHeader, out var xmsRequestRootId))
-=======
-=======
-
-                // Request-Id
->>>>>>> 4f93728... tracestate validation and tests
+                
+                // x-ms-*
                 else if (currentActivity.ParentId == null &&
-                    httpContext.Request.Headers.TryGetValue(RequestResponseHeaders.StandardRootIdHeader, out StringValues alternativeRootIdValues) &&
-                    alternativeRootIdValues != StringValues.Empty)
->>>>>>> a758c05... Experimental support for W3C headers
+                         httpContext.Request.Headers.TryGetValue(RequestResponseHeaders.StandardRootIdHeader, out StringValues alternativeRootIdValues) &&
+                         alternativeRootIdValues != StringValues.Empty)
                 {
                     isActivityCreatedFromRequestIdHeader = false;
-                    var activity = new Activity(ActivityCreatedByHostingDiagnosticListener)
+                    newActivity = new Activity(ActivityCreatedByHostingDiagnosticListener)
                         .SetParentId(StringUtilities.EnforceMaxLength(alternativeRootIdValues.First(),
                         InjectionGuardConstants.RequestHeaderMaxLength));
-                    activity.Start();
-<<<<<<< HEAD
-                    httpContext.Features.Set(activity);
-
-                    currentActivity = activity;
                 }
-                else
+
+                // no headers
+                else if (currentActivity.ParentId == null)
                 {
                     // As a first step in supporting W3C protocol in ApplicationInsights,
                     // we want to generate Activity Ids in the W3C compatible format.
@@ -141,16 +117,15 @@
                     // the current Activity by the properly formatted one. This workaround should go away
                     // with W3C support on .NET https://github.com/dotnet/corefx/issues/30331
 
-                    var activity = new Activity(ActivityCreatedByHostingDiagnosticListener);
-
-                    activity.SetParentId(StringUtilities.GenerateTraceId());
-                    activity.Start();
-                    httpContext.Features.Set(activity);
-                    currentActivity = activity;
-
+                    newActivity = new Activity(ActivityCreatedByHostingDiagnosticListener);
+                    newActivity.SetParentId(StringUtilities.GenerateTraceId());
                     // end of workaround
-=======
->>>>>>> a758c05... Experimental support for W3C headers
+                }
+
+                if (newActivity != null)
+                {
+                    newActivity.Start();
+                    currentActivity = newActivity;
                 }
 
                 var requestTelemetry = InitializeRequestTelemetry(httpContext, currentActivity, isActivityCreatedFromRequestIdHeader, Stopwatch.GetTimestamp());
@@ -184,18 +159,18 @@
                 var isActivityCreatedFromRequestIdHeader = false;
 
                 string sourceAppId = null;
+
                 IHeaderDictionary requestHeaders = httpContext.Request.Headers;
 
                 // W3C
                 if (this.enableW3CHeaders)
                 {
                     SetW3CContext(httpContext.Request.Headers, activity, out sourceAppId);
-                    // length enforced in TrySetW3CContext
-                    activity.SetParentId(activity.GetTraceId());
+                    // length enforced in SetW3CContext
                 }
 
                 // Request-Id
-                else if (requestHeaders.TryGetValue(RequestResponseHeaders.RequestIdHeader, out StringValues requestIdValues) &&
+                if (requestHeaders.TryGetValue(RequestResponseHeaders.RequestIdHeader, out StringValues requestIdValues) &&
                     requestIdValues != StringValues.Empty)
                 {
                     var requestId = StringUtilities.EnforceMaxLength(requestIdValues.First(), InjectionGuardConstants.RequestHeaderMaxLength);
@@ -212,7 +187,7 @@
                     string alternativeRootId = StringUtilities.EnforceMaxLength(alternativeRootIdValues.First(), InjectionGuardConstants.RequestHeaderMaxLength);
                     activity.SetParentId(alternativeRootId);
                 }
-                else
+                else if(!activity.IsW3CActivity())
                 {
                     // As a first step in supporting W3C protocol in ApplicationInsights,
                     // we want to generate Activity Ids in the W3C compatible format.
@@ -222,13 +197,13 @@
                     // the current Activity by the properly formatted one. This workaround should go away
                     // with W3C support on .NET https://github.com/dotnet/corefx/issues/30331
 
+                    
                     activity.SetParentId(StringUtilities.GenerateTraceId());
 
                     // end of workaround
                 }
 
                 activity.Start();
-                httpContext.Features.Set(activity);
 
                 var requestTelemetry = InitializeRequestTelemetry(httpContext, activity, isActivityCreatedFromRequestIdHeader, timestamp);
                 if (this.enableW3CHeaders && sourceAppId != null)
@@ -290,21 +265,23 @@
         {
             var requestTelemetry = new RequestTelemetry();
 
+            string originalParentId = null;
+            
             if (isActivityCreatedFromRequestIdHeader)
             {
-                requestTelemetry.Context.Operation.ParentId = activity.ParentId;
+                originalParentId = activity.ParentId;
+            }
+            else if (httpContext.Request.Headers.TryGetValue(RequestResponseHeaders.RequestIdHeader, out var requestId))
+            {
+                // there was a request-id, but Activity was not initialized from it
+                originalParentId = StringUtilities.EnforceMaxLength(requestId, InjectionGuardConstants.RequestHeaderMaxLength);
             }
             else if (httpContext.Request.Headers.TryGetValue(RequestResponseHeaders.StandardParentIdHeader, out var standardParentId))
             {
-                standardParentId = StringUtilities.EnforceMaxLength(standardParentId, InjectionGuardConstants.RequestHeaderMaxLength);
-                requestTelemetry.Context.Operation.ParentId = standardParentId;
+                originalParentId = StringUtilities.EnforceMaxLength(standardParentId, InjectionGuardConstants.RequestHeaderMaxLength);
             }
 
-            if (this.enableW3CHeaders)
-            {
-                w3cInitializer.Initialize(requestTelemetry);
-            }
-            else
+            if (!this.enableW3CHeaders)
             {
                 requestTelemetry.Context.Operation.Id = activity.RootId;
                 requestTelemetry.Id = activity.Id;
@@ -319,6 +296,9 @@
             }
 
             this.client.Initialize(requestTelemetry);
+
+            // original parent might be wrong because of faling W3C operation id format
+            requestTelemetry.Context.Operation.ParentId = originalParentId;
             requestTelemetry.Source = GetAppIdFromRequestHeader(httpContext.Request.Headers, requestTelemetry.Context.InstrumentationKey);
 
             requestTelemetry.Start(timestamp);
@@ -463,16 +443,13 @@
                 activity.SetTraceState(traceStateExceptAppId);
             }
 
-            if (!activity.Baggage.Any())
-            {
-                ReadCorrelationContext(requestHeaders, activity);
-            }
+            ReadCorrelationContext(requestHeaders, activity);
         }
 
         private void ReadCorrelationContext(IHeaderDictionary requestHeaders, Activity activity)
         {
             string[] baggage = requestHeaders.GetCommaSeparatedValues(RequestResponseHeaders.CorrelationContextHeader);
-            if (baggage != StringValues.Empty)
+            if (baggage != StringValues.Empty && !activity.Baggage.Any())
             {
                 foreach (var item in baggage)
                 {
