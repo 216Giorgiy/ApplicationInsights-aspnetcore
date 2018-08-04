@@ -977,7 +977,6 @@ namespace Microsoft.Extensions.DependencyInjection.Test
                 var telemetryConfiguration = serviceProvider.GetTelemetryConfiguration();
 
                 Assert.Contains(telemetryConfiguration.TelemetryInitializers, t => t is W3COperationCorrelationTelemetryInitializer);
-                Assert.Contains(TelemetryConfiguration.Active.TelemetryInitializers, t => t is W3COperationCorrelationTelemetryInitializer);
 
                 var modules = serviceProvider.GetServices<ITelemetryModule>().ToList();
 
