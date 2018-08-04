@@ -970,7 +970,9 @@ namespace Microsoft.Extensions.DependencyInjection.Test
             [Fact]
             public static void W3CIsEnabledWhenConfiguredInOptions()
             {
-                var services = CreateServicesAndAddApplicationinsightsTelemetry(null, "http://localhost:1234/v2/track/");
+                var services = CreateServicesAndAddApplicationinsightsTelemetry(null, 
+                    "http://localhost:1234/v2/track/", 
+                    o => o.RequestCollectionOptions.EnableW3CDistributedTracing = true);
                 IServiceProvider serviceProvider = services.BuildServiceProvider();
                 var telemetryConfiguration = serviceProvider.GetTelemetryConfiguration();
 
