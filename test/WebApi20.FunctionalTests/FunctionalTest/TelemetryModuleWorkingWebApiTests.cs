@@ -49,7 +49,8 @@
                 return builder.ConfigureServices(
                     services =>
                     {
-                        services.AddApplicationInsightsTelemetry(o => o.RequestCollectionOptions.EnableW3CDistributedTracing = true);
+                        services.AddApplicationInsightsTelemetry(
+                            o => o.RequestCollectionOptions.EnableW3CDistributedTracing = true);
 
                         // enable headers injection on localhost
                         var dependencyModuleConfigFactoryDescriptor = services.Where(sd => sd.ServiceType == typeof(ITelemetryModuleConfigurator));

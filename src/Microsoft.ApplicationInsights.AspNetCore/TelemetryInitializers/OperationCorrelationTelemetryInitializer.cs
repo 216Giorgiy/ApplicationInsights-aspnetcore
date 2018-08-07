@@ -1,7 +1,6 @@
 ﻿namespace Microsoft.ApplicationInsights.AspNetCore.TelemetryInitializers
 {
-    using System;
-    using Microsoft.ApplicationInsights.AspNetCore.Common;
+    using Microsoft.ApplicationInsights.Common;
     using Microsoft.ApplicationInsights.AspNetCore.DiagnosticListeners;
     using Microsoft.ApplicationInsights.Channel;
     using Microsoft.ApplicationInsights.DataContracts;

@@ -50,7 +50,7 @@
             timer.Stop();
 
             this.DebugTelemetryItems(actual);
-            this.output.WriteLine("Response headers: " + string.Join(",", response.Headers.Select(kvp => $"{kvp.Key} = {kvp.Value}")));
+            this.output.WriteLine("Response headers: " + string.Join(",", response.Headers.Select(kvp => $"{kvp.Key} = {kvp.Value.First()}")));
 
             var item = actual.OfType<TelemetryItem<RequestData>>().FirstOrDefault();
             Assert.NotNull(item);
@@ -150,7 +150,7 @@
 
                 var task = httpClient.SendAsync(request);
                 task.Wait(TestListenerTimeoutInMs);
-                this.output.WriteLine(string.Format("{0}: Ended request: {1}", DateTime.Now.ToString("MM/dd/yyyy hh:mm:ss.fff tt"), requestPath));
+                this.output.WriteLine(string.Format("{0:MM/dd/yyyy hh:mm:ss.fff tt}: Ended request: {1}", DateTime.Now, requestPath));
 
                 return task.Result;
             }
@@ -165,7 +165,7 @@
                 if (dependency != null)
                 {                    
                     var data = ((TelemetryItem<RemoteDependencyData>)dependency).data.baseData;
-                    builder.AppendLine($"{dependency.ToString()} - {data.data} - {((TelemetryItem<RemoteDependencyData>)dependency).time} - {data.duration} - {data.id} - {data.name} - {data.resultCode} - {data.success} - {data.target} - {data.type}");
+                    builder.AppendLine($"{dependency} - {data.data} - {((TelemetryItem<RemoteDependencyData>)dependency).time} - {data.duration} - {data.id} - {data.name} - {data.resultCode} - {data.success} - {data.target} - {data.type}");
                 }
                 else
                 {
@@ -173,7 +173,7 @@
                     if (request != null)
                     {
                         var data = ((TelemetryItem<RequestData>)request).data.baseData;
-                        builder.AppendLine($"{request.ToString()} - {data.url} - {((TelemetryItem<RequestData>)request).time} - {data.duration} - {data.id} - {data.name} - {data.success} - {data.responseCode}");
+                        builder.AppendLine($"{request} - {data.url} - {((TelemetryItem<RequestData>)request).time} - {data.duration} - {data.id} - {data.name} - {data.success} - {data.responseCode}");
                     }
                     else
                     {
@@ -181,7 +181,7 @@
                         if (exception != null)
                         {
                             var data = ((TelemetryItem<ExceptionData>)exception).data.baseData;
-                            builder.AppendLine($"{exception.ToString()} - {data.exceptions[0].message} - {data.exceptions[0].stack} - {data.exceptions[0].typeName} - {data.severityLevel}");
+                            builder.AppendLine($"{exception} - {data.exceptions[0].message} - {data.exceptions[0].stack} - {data.exceptions[0].typeName} - {data.severityLevel}");
                         }
                         else
                         {
@@ -189,7 +189,7 @@
                             if (message != null)
                             {
                                 var data = ((TelemetryItem<MessageData>)message).data.baseData;
-                                builder.AppendLine($"{message.ToString()} - {data.message} - {data.severityLevel}");
+                                builder.AppendLine($"{message} - {data.message} - {data.severityLevel}");
                             }
                             else
                             {

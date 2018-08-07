@@ -224,11 +224,11 @@
                 var actualRequest = this.ValidateRequestWithHeaders(server, RequestPath, headers, expectedRequestTelemetry);
 
                 Assert.Equal("4bf92f3577b34da6a3ce929d0e0e4736", actualRequest.tags["ai.operation.id"]);
-                Assert.Equal("|4bf92f3577b34da6a3ce929d0e0e4736.00f067aa0ba902b7.", actualRequest.tags["ai.operation.parentId"]);
+                Assert.StartsWith("|4bf92f3577b34da6a3ce929d0e0e4736.00f067aa0ba902b7.", actualRequest.tags["ai.operation.parentId"]);
                 Assert.Equal("v1", actualRequest.data.baseData.properties["k1"]);
                 Assert.Equal("v2", actualRequest.data.baseData.properties["k2"]);
                 Assert.Equal("abc", actualRequest.data.baseData.properties["ai_legacyRootId"]);
-                Assert.StartsWith("|abc.123", actualRequest.data.baseData.properties["ai_legacyParentId"]);
+                Assert.StartsWith("|abc.123", actualRequest.data.baseData.properties["ai_legacyRequestId"]);
             }
         }
         [Fact]

@@ -690,7 +690,7 @@
             Assert.Equal($"appId={CommonMocks.TestApplicationId}", appId);
 
             Assert.Equal("abc", requestTelemetry.Properties["ai_legacyRootId"]);
-            Assert.StartsWith("|abc.1.2.3.", requestTelemetry.Properties["ai_legacyParentId"]);
+            Assert.StartsWith("|abc.1.2.3.", requestTelemetry.Properties["ai_legacyRequestId"]);
         }
 
         [Fact]
@@ -724,7 +724,7 @@
             Assert.Equal("|abc.1.2.3.", requestTelemetry.Context.Operation.ParentId);
 
             Assert.Equal("abc", requestTelemetry.Properties["ai_legacyRootId"]);
-            Assert.StartsWith("|abc.1.2.3.", requestTelemetry.Properties["ai_legacyParentId"]);
+            Assert.StartsWith("|abc.1.2.3.", requestTelemetry.Properties["ai_legacyRequestId"]);
         }
 
         [Fact]
