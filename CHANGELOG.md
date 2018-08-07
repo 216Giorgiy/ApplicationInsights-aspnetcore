@@ -3,6 +3,9 @@
 ## Version 2.5.0-beta1
 - [Adds opt-in support for W3C distributed tracing standard](https://github.com/Microsoft/ApplicationInsights-aspnetcore/pull/735)
 
+## Version 2.4.0
+- Updated Web/Base SDK version dependency to 2.7.0
+
 ## Version 2.4.0-beta4
 - [Generate W3C compatible operation Id when there is no parent operation](https://github.com/Microsoft/ApplicationInsights-dotnet-server/pull/952)
 - Updated Web/Base SDK version dependency to 2.7.0-beta4
